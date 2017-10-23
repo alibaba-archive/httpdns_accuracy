@@ -28,11 +28,11 @@ if os.name == 'nt':
     import win_inet_pton as _
 
 import csv
+import time
 import socket
 import traceback
-from cStringIO import StringIO
 from collections import defaultdict
-from concurrent.futures import wait
+from concurrent.futures import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import dns
@@ -41,12 +41,17 @@ import dns.resolver
 import dns.exception
 import clientsubnetoption
 import requests
+from progressbar import ProgressBar
+from requests import ConnectionError
 from requests.adapters import HTTPAdapter
 
 from config import (
     HOSTS, CARRIERS, PROVINCES, IPS, SAMPLE_COUNT
 )
 
+
+RUN_LOG_FILE = 'httpdns_accuracy.run_log'
+DETAIL_CSV_FILE = 'httpdns_accuracy_detail.csv'
 HTTPDNS_URL = "http://203.107.1.33/139450/d?host=%s&ip=%s"
 DNSPOD_URL = "http://119.29.29.29/d?dn=%s&ip=%s"
 
@@ -55,27 +60,35 @@ THREAD_POOL = ThreadPoolExecutor(max_workers=20)
 FINAL_RESULTS = {}
 
 
-def fetch_url(url, **kw):
-    session = requests.session()
-    session.mount('http://', HTTPAdapter(max_retries=3))
-    return session.get(url, **kw)
-
-
 def retry(n=5, exc_list=()):
     def decorator(fn):
         def wrapper(*args, **kwargs):
             tried = 1
             while tried <= n:
                 try:
-                    return fn(*args, **kwargs)
+                    result = fn(*args, **kwargs)
                 except exc_list as err:
                     # print >> sys.stderr, fn, args, kwargs
-                    print >> sys.stderr, '## RETRY %s/%s, [%s]' % (tried, n, err)
+                    run_log('## RETRY %s/%s, [%s]\n##  -> %s%s'
+                            % (tried, n, err, fn.__name__, args), print_stderr=False)
                     tried += 1
+                else:
+                    if tried > 1:
+                        run_log('##  -> %s%s [RESOLVED]'
+                                % (fn.__name__, args), print_stderr=False)
+                    return result
             else:
                 raise err
         return wrapper
     return decorator
+
+
+@retry(exc_list=(ConnectionError, ))
+def fetch_url(url, **kw):
+    session = requests.session()
+    session.mount('http://', HTTPAdapter(max_retries=3))
+    kw.setdefault('timeout', 3)
+    return session.get(url, **kw)
 
 
 @retry(exc_list=(dns.exception.Timeout, dns.resolver.NoAnswer, ))
@@ -150,48 +163,71 @@ def start_resolve():
                         do_resolve, target, authority, client_ip, target_result)
 
 
+log_fp = open(RUN_LOG_FILE, 'ab')
+def run_log(s, print_stderr=True):
+    log_fp.write(s + "\n")
+    if print_stderr:
+        print >> sys.stderr, s
+
+
 def main():
+    run_log("""\n\n
+=====httpdns_accuracy=====
+%s
+==========================\n\n""" % time.ctime(), print_stderr=False)
+
     print >> sys.stderr, '待测试域名：%s' % len(HOSTS)
     print >> sys.stderr, '待测试省份：%s' % len(PROVINCES)
     print >> sys.stderr, '待测试运营商：%s' % len(CARRIERS)
+    print >> sys.stderr, '根据您的网络和机器配置，可能要运行20~30分钟，请耐心等待...'
 
     # start resolve
-    wait(list(start_resolve()))
+    print >> sys.stderr, '\n正在构造请求...'
+    features = list(ProgressBar()(start_resolve(), SAMPLE_COUNT))
+
+    print >> sys.stderr, '\n正在查询服务器...'
+    list(ProgressBar()(as_completed(features), SAMPLE_COUNT))
 
     percentile = lambda f: '%.2f%%' % (f * 100)
 
-    csv_fp = StringIO()
-    writer = csv.writer(csv_fp)
-
     # calc diffs
     diffs = {'HTTPDNS': 0, 'DNSPOD': 0}
-    for province in PROVINCES:
-        for carrier in CARRIERS:
-            for client_ip in IPS[province, carrier]:
-                for target, authority in HOSTS:
-                    result = FINAL_RESULTS[province][carrier][client_ip][target]
-                    authority_ips = result['Authority']
-                    matches = {}
-                    for provider in diffs:
-                        provider_ips = result[provider]
-                        intersection = authority_ips.intersection(provider_ips)
-                        matches[provider] = len(intersection) / float(len(provider_ips)) if provider_ips else 0
-                        diffs[provider] += 1 - matches[provider]
+    with open(DETAIL_CSV_FILE, 'wb') as csv_fp:
+        writer = csv.writer(csv_fp)
+        for province in PROVINCES:
+            for carrier in CARRIERS:
+                for client_ip in IPS[province, carrier]:
+                    for target, authority in HOSTS:
+                        result = FINAL_RESULTS[province][carrier][client_ip][target]
+                        authority_ips = result['Authority']
+                        matches = {}
+                        for provider in diffs:
+                            provider_ips = result[provider]
+                            intersection = set(authority_ips).intersection(provider_ips)
+                            matches[provider] = len(intersection) / float(len(provider_ips)) if provider_ips else 0
+                            diffs[provider] += 1 - matches[provider]
 
-                    writer.writerow([
-                        target, province, carrier, authority, client_ip,
-                        percentile(matches['HTTPDNS']), percentile(matches['DNSPOD']),
-                        authority_ips, result['HTTPDNS'], result['DNSPOD']
-                    ])
+                        writer.writerow([
+                            target, province, carrier, authority, client_ip,
+                            percentile(matches['HTTPDNS']), percentile(matches['DNSPOD']),
+                            authority_ips, result['HTTPDNS'], result['DNSPOD']
+                        ])
+
+    run_log('测试域名：%s' % len(HOSTS))
+    run_log('测试省份：%s' % len(PROVINCES))
+    run_log('测试运营商：%s\n' % len(CARRIERS))
 
     if not SAMPLE_COUNT:
-        print >> sys.stderr, '无有效监测样本'
+        run_log('无有效监测样本')
     else:
-        print >> sys.stderr, 'Total sample number: %s' % SAMPLE_COUNT
+        run_log('Total sample number: %s' % SAMPLE_COUNT)
         for provider in diffs:
-            print >> sys.stderr, 'Provider: %s Difference: %.2f%%' % (provider, diffs[provider] * 100.0 / SAMPLE_COUNT)
+            run_log('Provider: %s Accuracy: %s' % (provider, percentile(1 - diffs[provider] / SAMPLE_COUNT)))
 
-    print csv_fp.getvalue()
+    run_log("""\n\n
+=====httpdns_accuracy end=====
+%s
+==============================\n\n""" % time.ctime(), print_stderr=False)
 
 
 if __name__ == '__main__':

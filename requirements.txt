@@ -2,4 +2,5 @@ requests
 dnspython
 clientsubnetoption
 futures
+progressbar2
 win_inet_pton  # for windows user
