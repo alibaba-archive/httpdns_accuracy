@@ -38,4 +38,4 @@
 
 ### 2. 机器负载较高
 
-请调节THREAD_POOL = ThreadPoolExecutor(max_workers=20) 中的并发数量
+请调节THREAD_POOL = ThreadPoolExecutor(max_workers=30) 中的并发数量

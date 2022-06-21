@@ -20,11 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from collections import defaultdict
 
 HOSTS = (
-    ('gw.alicdn.com', 'danuoyins7.tbcache.com'),
-    # gslb -> grid[CNAME/A] random result
+    ('gw.alicdn.com.danuoyi.tbcache.com', 'danuoyins7.tbcache.com'),
     ('ww1.sinaimg.cn.w.alikunlun.com', 'ns3.alikunlun.com'),
-    ('webcdn.cloudxns.suning.cn', 'lv4ns1.ffdns.net'), ('suning.xdwscache.ourwebcdn.com', '103.254.191.103'),
-    ('hiphotos.jomodns.com', '180.76.76.118'), ('x2ipv6.tcdn.qq.com', '180.163.22.46')
+    ('bili.cold.c.cdnhwc2.com','ns1.huaweicloud-dns.cn'),
+    ('v6-cname.dingtalk.com.gds.alibabadns.com','ns7.taobao.com'),
+    ('suning.xdwscache.ourwebcdn.com', 'dns2.wswebcdn.info'),
+    ('y.qq.com.sched.px-dk.tdnsv6.com','ns5.tdnsv6.com'),
+    ('hiphotos.gshifen.com',  'ns1.gshifen.com'),
+    ('x2ipv6.tcdn.qq.com', 'ns-cdn1.qq.com'),
+    ('i.w.bilicdn1.com','ns4.dnsv5.com')
 )
 
 CLIENT_SAMPLES = (

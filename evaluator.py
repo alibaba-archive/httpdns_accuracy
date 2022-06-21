@@ -52,10 +52,10 @@ from config import (
 
 RUN_LOG_FILE = 'httpdns_accuracy.run_log'
 DETAIL_CSV_FILE = 'httpdns_accuracy_detail.csv'
-HTTPDNS_URL = "http://203.107.1.33/139450/d?host=%s&ip=%s"
+HTTPDNS_URL = "http://203.107.1.65/139450/d?host=%s&ip=%s"
 DNSPOD_URL = "http://119.29.29.29/d?dn=%s&ip=%s"
 
-THREAD_POOL = ThreadPoolExecutor(max_workers=20)
+THREAD_POOL = ThreadPoolExecutor(max_workers=30)
 
 FINAL_RESULTS = {}
 
@@ -120,7 +120,7 @@ def collect_ips(resp, target):
 def do_resolve(target, authority, client_ip, result):
     # Authority
     authority_ips = result['Authority'] = set()
-    min_times, max_times = 5, 25
+    min_times, max_times = 10, 25
     for times in range(1, max_times + 1):
         try:
             resp = query_dns0(target, authority, client_ip)
@@ -192,6 +192,7 @@ def main():
 
     # calc diffs
     diffs = {'HTTPDNS': 0, 'DNSPOD': 0}
+    effective_sample_count = 0
     with open(DETAIL_CSV_FILE, 'wb') as csv_fp:
         writer = csv.writer(csv_fp)
         for province in PROVINCES:
@@ -200,6 +201,9 @@ def main():
                     for target, authority in HOSTS:
                         result = FINAL_RESULTS[province][carrier][client_ip][target]
                         authority_ips = result['Authority']
+                        if not authority_ips:
+                            continue
+                        effective_sample_count = effective_sample_count + 1
                         matches = {}
                         for provider in diffs:
                             provider_ips = result[provider]
@@ -217,12 +221,12 @@ def main():
     run_log('测试省份：%s' % len(PROVINCES))
     run_log('测试运营商：%s\n' % len(CARRIERS))
 
-    if not SAMPLE_COUNT:
+    if not effective_sample_count:
         run_log('无有效监测样本')
     else:
         run_log('Total sample number: %s' % SAMPLE_COUNT)
         for provider in diffs:
-            run_log('Provider: %s Accuracy: %s' % (provider, percentile(1 - diffs[provider] / SAMPLE_COUNT)))
+            run_log('Provider: %s Accuracy: %s' % (provider, percentile(1 - diffs[provider] / effective_sample_count)))
 
     run_log("""\n\n
 =====httpdns_accuracy end=====
