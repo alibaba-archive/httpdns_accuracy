@@ -221,10 +221,11 @@ def main():
     run_log('测试省份：%s' % len(PROVINCES))
     run_log('测试运营商：%s\n' % len(CARRIERS))
 
-    if not effective_sample_count:
+    if not SAMPLE_COUNT:
         run_log('无有效监测样本')
     else:
         run_log('Total sample number: %s' % SAMPLE_COUNT)
+        run_log('Effective sample number: %s' % effective_sample_count)
         for provider in diffs:
             run_log('Provider: %s Accuracy: %s' % (provider, percentile(1 - diffs[provider] / effective_sample_count)))
 

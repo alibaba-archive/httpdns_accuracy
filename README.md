@@ -28,6 +28,34 @@
 1. httpdns_accuracy_detail.csv： 详细的数据表报告
 1. httpdns_accuracy.run_log：运行日志，包含错误输出及最终结果
 
+## 测试自己的域名
+按照以下步骤，比较阿里云HTTPDNS与友商的解析精度。
+### 1. 开通阿里云HTTPDNS
+登录阿里云官网开通 [阿里云HTTPDNS](https://help.aliyun.com/product/30100.html) ，HTTPDNS为每个账户提供150万次解析/月的免费测试额度。
+
+### 2. 配置HTTPDNS账户ID
+1. 在HTTPDNS控制台的[概览](https://help.aliyun.com/document_detail/30115.html) 的左上角获取自己的HTTPDNS的账户ID 
+2. 把evaluator.py文件中HTTPDNS_URL的'139450'修改为自己的HTTPDNS账户ID
+```
+HTTPDNS_URL = "http://203.107.1.65/{HTTPDNS账号ID}/d?host=%s&ip=%s"
+```
+
+### 3. 探测CNAME和权威域名服务器
+1. 把domains.txt中的域名列表替换为自己待测试的域名列表
+2. 执行命令得到配置文件config.py中的HOSTS变量
+```bash
+bash  config_helper.sh
+```
+3. 用上面命令得到的HOSTS数据替换config.py中的HOSTS数据
+
+### 4. 添加HTTPDNS域名白名单
+登录HTTPDNS控制台，把HOSTS第一列中的域名[添加到HTTPDNS域名白名单](https://help.aliyun.com/document_detail/30116.html)
+
+### 5. 执行测试
+确保HTTPDNS解析配置生效后，执行以下命令比较解析精度
+```python
+python2.7 evaluator.py
+```
 
 ## FAQ
 
