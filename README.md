@@ -12,8 +12,11 @@
 
 `evaluator.py`
 
-检测脚本，针对所有的待检测域名，分别采用EDNS权威，HTTPDNS，DNSPOD D+三种方式，携带终端IP样本进行解析，对比HTTPDNS、DNSPOD D+与权威EDNS解析的差异，并给出有差异的解析数据及最终的差异统计信息。
+检测脚本，针对所有的待检测域名，分别采用EDNS权威，HTTPDNS，DNSPOD D+，Google DoH四种方式，携带终端IP样本进行解析，对比HTTPDNS、DNSPOD D+、Google DoH与权威EDNS解析的差异，并给出有差异的解析数据及最终的差异统计信息。
 
+`samples.py`
+
+待检测的IP采样点集合，覆盖不同地域与运营商，目前只包括中国与东南亚地区，如果需要更多地区的探测点，请到[阿里云HTTPDNS](https://help.aliyun.com/product/30100.html) 提交工单。
 
 ## 运行方式
 
@@ -37,7 +40,7 @@
 1. 在HTTPDNS控制台的[概览](https://help.aliyun.com/document_detail/30115.html) 的左上角获取自己的HTTPDNS的账户ID 
 2. 把evaluator.py文件中HTTPDNS_URL的'139450'修改为自己的HTTPDNS账户ID
 ```
-HTTPDNS_URL = "http://203.107.1.65/{HTTPDNS账号ID}/d?host=%s&ip=%s"
+HTTPDNS_URL = "http://47.74.222.190/{HTTPDNS账号ID}/d?host=%s&ip=%s"
 ```
 
 ### 3. 探测CNAME和权威域名服务器
@@ -67,3 +70,9 @@ python2.7 evaluator.py
 ### 2. 机器负载较高
 
 请调节THREAD_POOL = ThreadPoolExecutor(max_workers=30) 中的并发数量
+
+### 3. 确保访问Google DNS网络正常
+
+
+`curl  "https://dns.google/resolve?name=www.aliyun.com&type=a&edns_client_subnet=202.97.96.0"`
+

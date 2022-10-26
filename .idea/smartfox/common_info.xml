@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SmartFoxWorkToolsProjectState">
+    <option name="branch" value="master" />
+    <option name="gitUrl" value="git@gitlab.alibaba-inc.com:alicloud-ams/httpdns_accuracy.git" />
+    <option name="localBranch" value="master" />
+    <option name="revision" value="45975198cf28ed41314683d2f441c5140d829c24" />
+  </component>
+</project>

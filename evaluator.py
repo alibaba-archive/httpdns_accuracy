@@ -52,8 +52,9 @@ from config import (
 
 RUN_LOG_FILE = 'httpdns_accuracy.run_log'
 DETAIL_CSV_FILE = 'httpdns_accuracy_detail.csv'
-HTTPDNS_URL = "http://203.107.1.65/139450/d?host=%s&ip=%s"
+HTTPDNS_URL = "http://47.74.222.190/139450/d?host=%s&ip=%s"
 DNSPOD_URL = "http://119.29.29.29/d?dn=%s&ip=%s"
+GOOGLE_URL = "https://dns.google/resolve?name=%s&type=a&edns_client_subnet=%s"
 
 THREAD_POOL = ThreadPoolExecutor(max_workers=30)
 
@@ -148,6 +149,17 @@ def do_resolve(target, authority, client_ip, result):
     except:
         traceback.print_exc()
 
+    # Google DoH
+    try:
+        resp = fetch_url(GOOGLE_URL % (target, client_ip)).json()
+        ip_list = list()
+        for answer in resp['Answer']:
+            if (answer['type'] == 1):
+                ip_list.append(answer['data'])
+        result['Google'] = sorted(ip_list)
+    except:
+        traceback.print_exc()
+
 
 def start_resolve():
     for province in PROVINCES:
@@ -191,7 +203,7 @@ def main():
     percentile = lambda f: '%.2f%%' % (f * 100)
 
     # calc diffs
-    diffs = {'HTTPDNS': 0, 'DNSPOD': 0}
+    diffs = {'HTTPDNS': 0, 'DNSPOD': 0, 'Google': 0}
     effective_sample_count = 0
     with open(DETAIL_CSV_FILE, 'wb') as csv_fp:
         writer = csv.writer(csv_fp)
@@ -214,7 +226,8 @@ def main():
                         writer.writerow([
                             target, province, carrier, authority, client_ip,
                             percentile(matches['HTTPDNS']), percentile(matches['DNSPOD']),
-                            authority_ips, result['HTTPDNS'], result['DNSPOD']
+                            percentile(matches['Google']), authority_ips,
+                            result['HTTPDNS'], result['DNSPOD'], result['Google']
                         ])
 
     run_log('测试域名：%s' % len(HOSTS))
